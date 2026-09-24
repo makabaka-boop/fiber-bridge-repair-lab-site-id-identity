@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# 本地环境覆盖（可用 .env 覆盖 WEB_PORT 等）
+.env
+.env.local
+.env.*.local
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+*.log
+npm-debug.log*

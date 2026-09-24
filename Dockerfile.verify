@@ -1,0 +1,9 @@
+# 一次性验收镜像：类型检查 → 单测（含删边预言机差分）→ 上限 5 秒性能预算，全部通过后退出 0
+FROM node:20-alpine
+WORKDIR /app
+ENV CI=true
+COPY package.json package-lock.json* ./
+# 安装含 devDependencies（typescript / vitest / tsx / testing-library 等）
+RUN npm ci
+COPY . .
+CMD ["sh", "-c", "npm run typecheck && npm run test && npx tsx src/core/perf.ts"]
