@@ -602,3 +602,83 @@ describe('最低总价备纤组合 UI', () => {
     expect(planRows()).toHaveLength(1);
   });
 });
+
+describe('含首尾空白编号的站点身份（UI）', () => {
+  // 链 "A" —L1— " A " —L2— "A "：三个站点仅空白不同，两条链路均为桥
+  const spacedJson = JSON.stringify({
+    sites: ['A', ' A ', 'A '],
+    links: [
+      { id: 'L1', u: 'A', v: ' A ' },
+      { id: 'L2', u: ' A ', v: 'A ' },
+    ],
+  });
+
+  /** 试接结果头部两个 <code> 中的端点文本（逐字符） */
+  const trialHeadEndpoints = () =>
+    Array.from(document.querySelectorAll('.trial-head code')).map((el) => el.textContent);
+
+  it('自动补全选中的 " A " 不被改写；四类入口均按逐字符编号引用与展示', async () => {
+    render(<App />);
+    await importJson(spacedJson);
+    await waitFor(() => expect(fragileStatValue()).toBe('2'));
+
+    // 单次试接：键入（等同自动补全选中）带空白编号，原样引用、原样展示
+    await submitTrial(' A ', 'A ');
+    await waitFor(() => expect(screen.getByText(/已消除 1 条/)).toBeTruthy());
+    expect(trialHeadEndpoints()).toEqual([' A ', 'A ']);
+    expect(screen.getByText(/仍脆弱 1 条/)).toBeTruthy();
+
+    // 失败隔离：不存在的空白变体 "  A" 报错且不静默改指，上次结果保留
+    await submitTrial('  A', 'A');
+    await waitFor(() => expect(screen.getByText('试接被拒绝。')).toBeTruthy());
+    expect(screen.getByText(/不在当前站点清单/)).toBeTruthy();
+    expect(trialHeadEndpoints()).toEqual([' A ', 'A ']);
+
+    // 批量筛选：端点与计数逐字符对应
+    await submitBatch('[{"a":" A ","b":"A "},{"a":"A","b":" A "}]');
+    await waitFor(() => expect(batchStatValue('方案总数')).toBe('2'));
+    expect(batchRows()).toEqual([
+      ['0', ' A ', 'A ', '1'],
+      ['1', 'A', ' A ', '1'],
+    ]);
+
+    // 批量失败隔离："   "（三空格）不存在，整批拒绝且保留上次结果
+    await submitBatch('[{"a":"   ","b":"A"}]');
+    await waitFor(() => expect(screen.getByText('批量导入被拒绝。')).toBeTruthy());
+    expect(screen.getByText(/下标 0.*不在当前站点清单/)).toBeTruthy();
+    expect(batchRows()).toHaveLength(2);
+
+    // 有序计划：两步各消一桥，端点逐字符展示
+    await submitPlan('[{"a":"A","b":" A "},{"a":" A ","b":"A "}]');
+    await waitFor(() => expect(planStatValue('计划覆盖基线桥')).toBe('2'));
+    const rows = planRows();
+    expect(rows).toHaveLength(2);
+    expect(rows[0][1]).toBe('A');
+    expect(rows[0][2]).toBe(' A ');
+    expect(rows[0][4]).toBe('1');
+    expect(rows[1][1]).toBe(' A ');
+    expect(rows[1][2]).toBe('A ');
+    expect(rows[1][4]).toBe('1');
+
+    // 最低报价：两条候选恰各覆盖一桥，全部入选，端点逐字符展示
+    await submitQuote(
+      '[{"id":"X1","a":"A","b":" A ","price":5},{"id":"X2","a":" A ","b":"A ","price":6}]',
+    );
+    await waitFor(() => expect(quoteStat('最低总价')).toBe('11'));
+    expect(quoteSelectedRows()).toEqual([
+      ['1', 'X1', 'A', ' A ', '5'],
+      ['2', 'X2', ' A ', 'A ', '6'],
+    ]);
+    expect(quoteCoverageRows().map((r) => [r[1], r[3]])).toEqual([
+      ['L1', 'X1'],
+      ['L2', 'X2'],
+    ]);
+
+    // 报价失败隔离：不存在的空白变体整批拒绝，上次求解结果保留
+    await submitQuote('[{"id":"X9","a":"A ","b":"A  ","price":1}]');
+    await waitFor(() => expect(screen.getByText('备纤报价被拒绝。')).toBeTruthy());
+    expect(screen.getByText(/备纤报价下标 0.*不在当前站点清单/)).toBeTruthy();
+    expect(quoteStat('最低总价')).toBe('11');
+    expect(quoteSelectedRows()).toHaveLength(2);
+  });
+});

@@ -140,17 +140,21 @@ export function parseTopology(jsonText: string): NormalizedTopology {
 }
 
 /**
- * 批量方案端点编号规范化：沿用单次试接规则——字符串去首尾空白后非空，
- * 或安全整数按其十进制文本承载；其余类型（布尔、null、对象、数组、
- * NaN/Infinity）一律拒绝。
+ * 批量方案端点编号规范化：与拓扑导入同一份身份契约——字符串编号
+ * 逐字符保留（含首尾空白，绝不修剪、绝不改写、绝不合并到其它编号），
+ * 仅空串拒绝；安全整数按其十进制文本承载；其余类型（布尔、null、
+ * 对象、数组、NaN/Infinity）一律拒绝。
+ *
+ * 拓扑契约接受的任意非空字符串（如 "A"、" A "、"A "、"  "）都是
+ * 互不相同的合法站点编号，后续流程必须能以完全相同的字符串精确寻址；
+ * 不存在的编号由 Analyzer 按“不在当前站点清单”报错，不得静默改指。
  */
 export function normalizePairEndpoint(value: unknown, label: string): string {
   if (typeof value === 'string') {
-    const s = value.trim();
-    if (s.length === 0) {
+    if (value.length === 0) {
       throw new TopologyError(`${label}为空`);
     }
-    return s;
+    return value;
   }
   if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)) {
     return String(value);

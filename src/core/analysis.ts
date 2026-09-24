@@ -730,11 +730,19 @@ export class Analyzer {
   }
 }
 
+/**
+ * 单次试接端点规范化：与拓扑导入同一份身份契约——字符串编号逐字符
+ * 保留（含首尾空白，绝不修剪、绝不改写、绝不合并到其它编号），仅空串
+ * 拒绝；安全整数按十进制文本承载；其余类型拒绝。
+ *
+ * "A"、" A "、"A "、全空白编号在拓扑中是互不相同的合法站点，必须能以
+ * 完全相同的字符串精确寻址；不存在的编号由 trial 按“不在当前站点清单”
+ * 报错，不得静默改指到修剪后的另一个站点。
+ */
 function normalizeEndpoint(value: unknown, label: string): string {
   if (typeof value === 'string') {
-    const s = value.trim();
-    if (s.length === 0) throw new TopologyError(`试接失败：${label}为空`);
-    return s;
+    if (value.length === 0) throw new TopologyError(`试接失败：${label}为空`);
+    return value;
   }
   if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)) {
     return String(value);

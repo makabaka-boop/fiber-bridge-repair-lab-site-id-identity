@@ -47,9 +47,10 @@ function randomConnectedGraph(rng: Rng, n: number, extraEdges: number): Normaliz
 }
 
 describe('parseOrderedPlan 输入契约', () => {
-  it('接受单步骤与数字编号（按单次试接规则规范化）', () => {
+  it('接受单步骤与数字编号（字符串编号逐字符保留）', () => {
     expect(parseOrderedPlan('[{"a": 1, "b": 2}]')).toEqual([{ a: '1', b: '2' }]);
-    expect(parseOrderedPlan('[{"a": "  s1 ", "b":"s2"}]')).toEqual([{ a: 's1', b: 's2' }]);
+    // 字符串编号逐字符保留：首尾空白是编号身份的一部分，绝不修剪
+    expect(parseOrderedPlan('[{"a": "  s1 ", "b":"s2"}]')).toEqual([{ a: '  s1 ', b: 's2' }]);
   });
 
   it('重复/反向步骤按原序保留', () => {

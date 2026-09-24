@@ -114,7 +114,9 @@ export function App() {
   const onTrial = (a: string, b: string) => {
     if (!valid) return;
     try {
-      const result = valid.analyzer.trial(a.trim(), b.trim());
+      // 站点编号逐字符引用：含首尾空白的编号（如自动补全选中的 " A "）
+      // 必须原样送达分析器，绝不修剪改写
+      const result = valid.analyzer.trial(a, b);
       setTrial({ result, error: null, a: result.a, b: result.b });
     } catch (e) {
       const msg = e instanceof TopologyError ? e.message : `试接失败：${(e as Error).message}`;

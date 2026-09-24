@@ -151,9 +151,9 @@ const chainTopo = (n: number): NormalizedTopology => ({
 });
 
 describe('parseQuotePlans 输入契约', () => {
-  it('接受合法候选：数字编号按文本规范化、端点去空白、零价合法', () => {
+  it('接受合法候选：数字编号按文本规范化、字符串端点逐字符保留、零价合法', () => {
     expect(parseQuotePlans('[{"id": 7, "a": "  s1 ", "b": 2, "price": 0}]')).toEqual([
-      { id: '7', a: 's1', b: '2', price: 0 },
+      { id: '7', a: '  s1 ', b: '2', price: 0 },
     ]);
   });
 

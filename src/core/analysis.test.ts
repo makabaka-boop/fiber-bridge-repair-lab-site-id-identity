@@ -199,7 +199,9 @@ describe('非法试接', () => {
   it('拒绝不存在端点与空值', () => {
     const a = new Analyzer(t);
     expect(() => a.trial('a', 'ghost')).toThrow(/不在当前站点清单/);
-    expect(() => a.trial('  ', 'b')).toThrow(/为空/);
+    // 空串非法；但全空白字符串是合法编号——本拓扑中不存在，按“不存在”报错而非“为空”
+    expect(() => a.trial('', 'b')).toThrow(/为空/);
+    expect(() => a.trial('  ', 'b')).toThrow(/不在当前站点清单/);
     expect(() => a.trial(null, 'b')).toThrow(/站点编号/);
   });
 });
