@@ -140,17 +140,20 @@ export function parseTopology(jsonText: string): NormalizedTopology {
 }
 
 /**
- * 批量方案端点编号规范化：沿用单次试接规则——字符串去首尾空白后非空，
- * 或安全整数按其十进制文本承载；其余类型（布尔、null、对象、数组、
- * NaN/Infinity）一律拒绝。
+ * 批量方案端点编号规范化：沿用单次试接规则——字符串**逐字符原样保留**
+ * （首尾空白是站点编号的合法组成部分，绝不删除或改写："A"、" A "、"A "
+ * 是三个不同站点），仅空字符串被拒绝；或安全整数按其十进制文本承载；
+ * 其余类型（布尔、null、对象、数组、NaN/Infinity）一律拒绝。
+ *
+ * 与站点导入（normalizeId）保持同一条字符串身份规则：凡被拓扑契约接受的
+ * 编号，在后续四类流程中必须能逐字符寻址。
  */
 export function normalizePairEndpoint(value: unknown, label: string): string {
   if (typeof value === 'string') {
-    const s = value.trim();
-    if (s.length === 0) {
-      throw new TopologyError(`${label}为空`);
+    if (value.length === 0) {
+      throw new TopologyError(`${label}为空字符串`);
     }
-    return s;
+    return value;
   }
   if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)) {
     return String(value);
@@ -160,7 +163,8 @@ export function normalizePairEndpoint(value: unknown, label: string): string {
 
 /**
  * “仅含 a/b 两字段对象”的 JSON 数组解析，批量方案筛选与有序备纤计划共用
- * 同一份契约：1–maxCount 项，每项端点编号沿用单次试接规则。
+ * 同一份契约：1–maxCount 项，每项端点编号沿用单次试接规则（字符串逐字符
+ * 保留，首尾空白是编号的合法组成部分）。
  *
  * 仅做结构与字段校验；端点存在性、互异性由 Analyzer 针对当前拓扑校验。
  * 空数组、额外字段、超限、任一项非法均整体拒绝，错误消息携带输入下标（0 起）。
@@ -229,7 +233,8 @@ export function parseOrderedPlan(jsonText: string): OrderedPlanStep[] {
  * 解析最低总价备纤组合输入：一个 1–16 条候选的 JSON 数组，每项为**仅含**
  * "id"、"a"、"b"、"price" 四个字段的对象：
  *  - id：候选编号，非空且全批唯一（规则同链路编号）；
- *  - a / b：端点编号，沿用单次试接规则；端点存在性、互异性由 Analyzer 校验；
+ *  - a / b：端点编号，沿用单次试接规则（字符串逐字符保留，首尾空白有意义）；
+ *    端点存在性、互异性由 Analyzer 校验；
  *  - price：数字、整数、非负、不超过 Number.MAX_SAFE_INTEGER。
  *
  * 空数组、超限、非对象项、缺字段、额外字段、编号重复、报价非法均整体拒绝，

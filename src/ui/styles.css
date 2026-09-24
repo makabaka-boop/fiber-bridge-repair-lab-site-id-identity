@@ -79,6 +79,9 @@ code {
   font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
   font-size: 12.5px;
   color: #bcd6ff;
+  /* 站点编号可含有意义的首尾空白，必须逐字符可见、不得被 HTML 折叠 */
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .json-input {
@@ -272,6 +275,16 @@ button.link {
 
 .mono {
   font-family: 'JetBrains Mono', Consolas, monospace;
+  /* 编号逐字符展示：保留有意义的首尾空白与连续空格 */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 表格单元格默认 nowrap，但编号单元格必须逐字符保留首尾空白可见 */
+.bridge-table td.mono,
+.bridge-table th.mono {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .muted {

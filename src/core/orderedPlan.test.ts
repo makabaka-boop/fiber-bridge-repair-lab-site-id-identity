@@ -49,7 +49,8 @@ function randomConnectedGraph(rng: Rng, n: number, extraEdges: number): Normaliz
 describe('parseOrderedPlan 输入契约', () => {
   it('接受单步骤与数字编号（按单次试接规则规范化）', () => {
     expect(parseOrderedPlan('[{"a": 1, "b": 2}]')).toEqual([{ a: '1', b: '2' }]);
-    expect(parseOrderedPlan('[{"a": "  s1 ", "b":"s2"}]')).toEqual([{ a: 's1', b: 's2' }]);
+    // 字符串逐字符保留：首尾空白是编号的合法组成部分，不得删除
+    expect(parseOrderedPlan('[{"a": "  s1 ", "b":"s2"}]')).toEqual([{ a: '  s1 ', b: 's2' }]);
   });
 
   it('重复/反向步骤按原序保留', () => {
@@ -83,7 +84,9 @@ describe('parseOrderedPlan 输入契约', () => {
   });
 
   it('拒绝非法端点类型并按下标报错', () => {
-    expect(() => parseOrderedPlan('[{"a":"","b":"y"}]')).toThrow(/下标 0.*为空/);
+    expect(() => parseOrderedPlan('[{"a":"","b":"y"}]')).toThrow(/下标 0.*为空字符串/);
+    // 全空白字符串是非空编号：解析层逐字符接受，是否存在由 Analyzer 精确判定
+    expect(parseOrderedPlan('[{"a":"  ","b":"y"}]')).toEqual([{ a: '  ', b: 'y' }]);
     expect(() => parseOrderedPlan('[{"a":true,"b":"y"}]')).toThrow(/下标 0/);
     expect(() => parseOrderedPlan('[{"a":"x","b":null}]')).toThrow(/下标 0/);
     expect(() => parseOrderedPlan('[{"a":"x","b":1.5}]')).toThrow(/下标 0/);

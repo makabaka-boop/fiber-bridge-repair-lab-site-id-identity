@@ -49,8 +49,9 @@ function randomConnectedGraph(rng: Rng, n: number, extraEdges: number): Normaliz
 describe('parseBatchPlans 输入契约', () => {
   it('接受单端点对与数字编号（按单次试接规则规范化）', () => {
     expect(parseBatchPlans('[{"a": 1, "b": 2}]')).toEqual([{ a: '1', b: '2' }]);
-    // 字符串去首尾空白
-    expect(parseBatchPlans('[{"a": "  s1 ", "b": "s2"}]')).toEqual([{ a: 's1', b: 's2' }]);
+    // 字符串逐字符保留：首尾空白是编号的合法组成部分，不得删除
+    expect(parseBatchPlans('[{"a": "  s1 ", "b": "s2"}]')).toEqual([{ a: '  s1 ', b: 's2' }]);
+    expect(parseBatchPlans('[{"a": "s1 ", "b": " s1"}]')).toEqual([{ a: 's1 ', b: ' s1' }]);
   });
 
   it('重复候选按原序保留', () => {
@@ -82,8 +83,9 @@ describe('parseBatchPlans 输入契约', () => {
   });
 
   it('拒绝非法端点类型并按下标报错', () => {
-    expect(() => parseBatchPlans('[{"a":"","b":"y"}]')).toThrow(/下标 0.*为空/);
-    expect(() => parseBatchPlans('[{"a":"   ","b":"y"}]')).toThrow(/下标 0.*为空/);
+    expect(() => parseBatchPlans('[{"a":"","b":"y"}]')).toThrow(/下标 0.*为空字符串/);
+    // 全空白字符串是非空编号：解析层逐字符接受，是否存在由 Analyzer 精确判定
+    expect(parseBatchPlans('[{"a":"   ","b":"y"}]')).toEqual([{ a: '   ', b: 'y' }]);
     expect(() => parseBatchPlans('[{"a":true,"b":"y"}]')).toThrow(/下标 0/);
     expect(() => parseBatchPlans('[{"a":"x","b":null}]')).toThrow(/下标 0/);
     expect(() => parseBatchPlans('[{"a":"x","b":1.5}]')).toThrow(/下标 0/);

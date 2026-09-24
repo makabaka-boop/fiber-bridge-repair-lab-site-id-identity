@@ -196,10 +196,31 @@ describe('非法试接', () => {
     expect(() => a.trial('a', 'a')).toThrow(/必须不同/);
   });
 
-  it('拒绝不存在端点与空值', () => {
+  it('拒绝不存在端点与空值；首尾空白逐字符保留不做归一化', () => {
     const a = new Analyzer(t);
     expect(() => a.trial('a', 'ghost')).toThrow(/不在当前站点清单/);
-    expect(() => a.trial('  ', 'b')).toThrow(/为空/);
+    // 空字符串才按“空”拒绝；全空白字符串是非空编号，精确按不存在处理
+    expect(() => a.trial('', 'b')).toThrow(/不能为空字符串/);
+    expect(() => a.trial('  ', 'b')).toThrow(/不在当前站点清单/);
     expect(() => a.trial(null, 'b')).toThrow(/站点编号/);
+  });
+
+  it('带首尾空白的站点编号逐字符寻址，不静默重定向到 trim 后编号', () => {
+    const tws = parseTopology(
+      JSON.stringify({
+        sites: ['a', ' a ', 'b'],
+        links: [
+          { id: 'l1', u: 'a', v: ' a ' },
+          { id: 'l2', u: ' a ', v: 'b' },
+        ],
+      }),
+    );
+    const aw = new Analyzer(tws);
+    // " a " 与 "a" 是两个站点：从 ' a ' 试接到 b 只消除 l2，绝不改写到 'a'
+    const r = aw.trial(' a ', 'b');
+    expect(r.a).toBe(' a ');
+    expect(r.removed.map((x) => x.id)).toEqual(['l2']);
+    // 带空白的不存在编号原样出现在错误中，不被 trim 成 'a' 而静默命中
+    expect(() => aw.trial(' a', 'b')).toThrow(/" a" 不在当前站点清单/);
   });
 });

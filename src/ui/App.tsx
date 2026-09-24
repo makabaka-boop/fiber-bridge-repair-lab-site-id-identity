@@ -114,7 +114,8 @@ export function App() {
   const onTrial = (a: string, b: string) => {
     if (!valid) return;
     try {
-      const result = valid.analyzer.trial(a.trim(), b.trim());
+      // 端点逐字符原样提交：首尾空白是站点编号的合法组成部分（" A " 不得改写成 "A"）
+      const result = valid.analyzer.trial(a, b);
       setTrial({ result, error: null, a: result.a, b: result.b });
     } catch (e) {
       const msg = e instanceof TopologyError ? e.message : `试接失败：${(e as Error).message}`;
@@ -373,6 +374,11 @@ function TrialSection({
       {valid.topology.sites.length > 2000 && (
         <p className="hint">站点较多，输入框支持直接键入编号精确匹配（自动补全仅列前 2000 项）。</p>
       )}
+      <p className="hint">
+        编号按<strong>逐字符</strong>精确匹配：首尾空白是站点编号的合法组成部分（如 <code>{'"A"'}</code>、
+        <code>{'" A "'}</code>、<code>{'"A "'}</code> 是三个不同站点），从自动补全选中或手工键入都不会被删除空白，
+        全空白编号（如 <code>{'" "'}</code>）同样可精确引用。
+      </p>
 
       {trial?.error && (
         <div className="alert error" role="alert">

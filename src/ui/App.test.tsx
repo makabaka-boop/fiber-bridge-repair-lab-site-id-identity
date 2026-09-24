@@ -117,6 +117,116 @@ const quoteUncoverableRows = () =>
 
 afterEach(cleanup);
 
+/**
+ * 含多组仅首尾空白不同站点编号的连通链（全部为桥）：
+ *   'A' - ' A ' - 'A ' - ' A' - 'X' - 'Y' - ' ' - 'Z'
+ */
+const whitespaceJson = JSON.stringify({
+  sites: ['A', ' A ', 'A ', ' A', 'X', 'Y', ' ', 'Z'],
+  links: [
+    { id: 'L1', u: 'A', v: ' A ' },
+    { id: 'L2', u: ' A ', v: 'A ' },
+    { id: 'L3', u: 'A ', v: ' A' },
+    { id: 'L4', u: ' A', v: 'X' },
+    { id: 'L5', u: 'X', v: 'Y' },
+    { id: 'L6', u: 'Y', v: ' ' },
+    { id: 'L7', u: ' ', v: 'Z' },
+  ],
+});
+
+describe('空白敏感站点编号 UI：逐字符身份贯穿四类入口', () => {
+  it('试接：自动补全选中的 " A " 原样提交，不改写成 "A"，桥集合按变体身份', async () => {
+    render(<App />);
+    await importJson(whitespaceJson);
+    await waitFor(() => expect(fragileStatValue()).toBe('7'));
+
+    // 自动补全清单中变体编号逐字符存在（option value 原样）
+    const options = Array.from(document.querySelectorAll('#site-list option')).map((o) => o.getAttribute('value'));
+    expect(options).toContain(' A ');
+    expect(options).toContain('A ');
+    expect(options).toContain(' A');
+    expect(options).toContain(' ');
+
+    // 从变体 " A " 试接到 Z：只消除 L2..L7，不含 L1（旧实现会 trim 成 "A"）
+    await submitTrial(' A ', 'Z');
+    await waitFor(() => expect(screen.getByText(/已消除 6 条/)).toBeTruthy());
+    // 头部回显逐字符保留（code 内保留首尾空白）
+    const head = document.querySelector('.trial-head')?.textContent ?? '';
+    expect(head).toContain(' A ');
+    // 已消除区含 L2 不含 L1；仍脆弱区为 L1（两张表在同一 section 内，按标题取其后续兄弟）
+    const tableAfterHeading = (re: RegExp) => {
+      const h = screen.getByText(re) as HTMLElement;
+      let node: Element | null = h.nextElementSibling;
+      while (node && !node.querySelector('table')) node = node.nextElementSibling;
+      return node?.textContent ?? '';
+    };
+    expect(tableAfterHeading(/相对基线已消除的链路/)).toContain('L2');
+    expect(tableAfterHeading(/相对基线已消除的链路/)).not.toContain('L1');
+    expect(tableAfterHeading(/仍脆弱的链路/)).toContain('L1');
+    expect(tableAfterHeading(/仍脆弱的链路/)).not.toContain('L2');
+
+    // 全空白站点 " " 也可精确引用
+    await submitTrial(' ', 'Z');
+    await waitFor(() => expect(screen.getByText(/已消除 1 条/)).toBeTruthy());
+
+    // 带空白的不存在编号精确失败且保留上次结果（不静默重定向到 "A"）
+    await submitTrial('  A ', 'Z');
+    await waitFor(() => expect(screen.getByText(/不在当前站点清单/)).toBeTruthy());
+    expect(screen.getByText(/已消除 1 条/)).toBeTruthy();
+  });
+
+  it('批量/有序/报价：仅空白不同的端点逐字符展示与裁决，失败按下标隔离', async () => {
+    render(<App />);
+    await importJson(whitespaceJson);
+    await waitFor(() => expect(fragileStatValue()).toBe('7'));
+
+    // 批量筛选：四个变体计数各不相同，端点逐字符回显
+    await submitBatch(
+      JSON.stringify([
+        { a: 'A', b: 'Z' },
+        { a: ' A ', b: 'Z' },
+        { a: 'A ', b: 'Z' },
+        { a: ' A', b: 'Z' },
+        { a: ' ', b: 'Z' },
+      ]),
+    );
+    await waitFor(() => expect(batchStatValue('方案总数')).toBe('5'));
+    expect(batchRows()).toEqual([
+      ['0', 'A', 'Z', '7'],
+      ['1', ' A ', 'Z', '6'],
+      ['2', 'A ', 'Z', '5'],
+      ['3', ' A', 'Z', '4'],
+      ['4', ' ', 'Z', '1'],
+    ]);
+    // 末项不存在的带空白编号：按下标拒绝，上次 5 行结果保留
+    await submitBatch(JSON.stringify([{ a: 'A', b: 'Z' }, { a: ' A  ', b: 'Z' }]));
+    await waitFor(() => expect(screen.getByText(/下标 1/)).toBeTruthy());
+    expect(batchRows()).toHaveLength(5);
+
+    // 有序计划：首步变体 " A "→Z 拿 L2..L7（6），第二步 "A"→Z 只新增 L1（1）
+    await submitPlan(JSON.stringify([{ a: ' A ', b: 'Z' }, { a: 'A', b: 'Z' }]));
+    await waitFor(() => expect(planStatValue('计划覆盖基线桥')).toBe('7'));
+    const rows = planRows();
+    expect(rows[0][1]).toBe(' A ');
+    expect(rows[0][4]).toBe('6');
+    expect(rows[1][4]).toBe('1'); // L1 归使用 "A" 的步骤，不被 trim 改写抢走
+
+    // 最低报价：三段变体候选缺一不可，旧 trim 会误判
+    await submitQuote(
+      JSON.stringify([
+        { id: 'P', a: 'A', b: ' A ', price: 5 },
+        { id: 'Q', a: ' A ', b: ' A', price: 5 },
+        { id: 'R', a: ' A', b: 'Z', price: 5 },
+      ]),
+    );
+    const quote = screen.getByText('6. 最低总价备纤组合').closest('section') as HTMLElement;
+    await waitFor(() => expect(within(quote).getByText('最低总价').closest('.stat')?.querySelector('.stat-value')?.textContent).toBe('15'));
+    expect(
+      Array.from(quote.querySelectorAll('.quote-selected-table tbody tr')).map((tr) => tr.querySelector('td:nth-child(2)')?.textContent),
+    ).toEqual(['P', 'Q', 'R']);
+  });
+});
+
 describe('拓扑工作台 UI', () => {
   it('完整流程：导入 → 基线 → 试接消险 → 非法试接保留上次结果', async () => {
     render(<App />);

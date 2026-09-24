@@ -730,11 +730,16 @@ export class Analyzer {
   }
 }
 
+/**
+ * 试接端点编号规范化：字符串**逐字符原样保留**（首尾空白是站点编号的合法
+ * 组成部分，绝不删除——"A"、" A "、"A "是三个不同站点，自动补全选中的
+ * 编号也必须原样到达此处），仅空字符串被拒绝；安全整数按其十进制文本承载。
+ * 端点存在性随后在 siteIndex 中精确匹配，绝不静默改写到相似编号。
+ */
 function normalizeEndpoint(value: unknown, label: string): string {
   if (typeof value === 'string') {
-    const s = value.trim();
-    if (s.length === 0) throw new TopologyError(`试接失败：${label}为空`);
-    return s;
+    if (value.length === 0) throw new TopologyError(`试接失败：${label}不能为空字符串`);
+    return value;
   }
   if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)) {
     return String(value);
